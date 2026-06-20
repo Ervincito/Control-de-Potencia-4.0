@@ -57,7 +57,7 @@
         const topicStatus = "industrial/potencia/status";
 
         // Conexión al Broker público vía WebSockets (puerto 8000)
-        const client = mqtt.connect('ws://broker.hivemq.com:8000/mqtt');
+        const client = mqtt.connect('wss://broker.hivemq.com:8014/mqtt');
 
         client.on('connect', () => {
             document.getElementById('lbl_estado').innerText = "Conectado. Esperando ESP32...";
