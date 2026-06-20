@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Cloud IoT - Control de Potencia</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #f4f4f9; margin: 0; padding: 20px; }
+        .container { max-width: 400px; background: white; margin: 0 auto; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h2 { color: #333; margin-bottom: 5px; }
+        h4 { color: #0056b3; margin-top: 0; font-weight: bold; }
+        .form-group { margin-bottom: 15px; text-align: left; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: #555; }
+        input[type="number"] { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; margin-top: 10px; font-weight: bold; }
+        .btn-start { background-color: #28a745; color: white; }
+        .btn-manual-on { background-color: #ffc107; color: #212529; }
+        .btn-stop { background-color: #dc3545; color: white; }
+        .monitor-panel { background-color: #e9ecef; padding: 15px; border-radius: 8px; margin-top: 20px; text-align: left; }
+        .monitor-line { font-size: 16px; margin: 8px 0; color: #333; }
+        .value { font-weight: bold; color: #0056b3; float: right; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Control de Potencia 4.0</h2>
+        <h4>Control Global (Nube MQTT)</h4>
+        
+        <div class="form-group">
+            <label>Tiempo Encendido (segundos):</label>
+            <input type="number" id="t_on" value="10" min="1">
+        </div>
+        <div class="form-group">
+            <label>Tiempo Apagado (segundos):</label>
+            <input type="number" id="t_off" value="5" min="1">
+        </div>
+        <div class="form-group">
+            <label>Número de Ciclos:</label>
+            <input type="number" id="ciclos" value="3" min="1">
+        </div>
+        
+        <button class="btn-start" onclick="iniciarCiclos()">Iniciar Ciclos Automatizados</button>
+        <button class="btn-manual-on" onclick="publicarComando('MANUAL_ON')">Encendido Manual Directo</button>
+        <button class="btn-stop" onclick="publicarComando('STOP')">Apagar / Detener Todo</button>
+        
+        <div class="monitor-panel">
+            <div class="monitor-line">Estado Actual: <span id="lbl_estado" class="value">Conectando a la nube...</span></div>
+            <div class="monitor-line">Ciclo Actual: <span id="lbl_ciclo" class="value">-</span></div>
+            <div class="monitor-line">Tiempo Restante: <span id="lbl_tiempo" class="value">-</span></div>
+        </div>
+    </div>
+
+    <script>
+        // Tópicos idénticos a los del ESP32
+        const topicControl = "industrial/potencia/control";
+        const topicStatus = "industrial/potencia/status";
+
+        // Conexión al Broker público vía WebSockets (puerto 8000)
+        const client = mqtt.connect('ws://broker.hivemq.com:8000/mqtt');
+
+        client.on('connect', () => {
+            document.getElementById('lbl_estado').innerText = "Conectado. Esperando ESP32...";
+            // Nos suscribimos para leer lo que mande el ESP32
+            client.subscribe(topicStatus);
+        });
+
+        client.on('error', (err) => {
+            document.getElementById('lbl_estado').innerText = "Error de conexión Cloud";
+            console.error(err);
+        });
+
+        // Recepción y procesamiento de datos del ESP32
+        client.on('message', (topic, message) => {
+            if(topic === topicStatus) {
+                const data = JSON.parse(message.toString());
+                document.getElementById('lbl_estado').innerText = data.estado;
+                
+                if(data.esCiclo) {
+                    document.getElementById('lbl_ciclo').innerText = data.cicloActual + " de " + data.ciclosTotales;
+                    document.getElementById('lbl_tiempo').innerText = data.tiempoRestante + " seg";
+                } else {
+                    document.getElementById('lbl_ciclo').innerText = "N/A";
+                    document.getElementById('lbl_tiempo').innerText = "N/A";
+                }
+            }
+        });
+
+        // Funciones para enviar comandos al ESP32 a través de la nube
+        function publicarComando(cmd) {
+            client.publish(topicControl, cmd);
+        }
+
+        function iniciarCiclos() {
+            const on = document.getElementById('t_on').value;
+            const off = document.getElementById('t_off').value;
+            const cycles = document.getElementById('ciclos').value;
+            // Construye la trama: START:10,5,3
+            const cmd = `START:${on},${off},${cycles}`;
+            publicarComando(cmd);
+        }
+    </script>
+</body>
+</html>
