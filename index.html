@@ -52,16 +52,16 @@
     </div>
 
     <script>
-        // Tópicos idénticos a los del ESP32
         const topicControl = "ervincito/potencia/control";
         const topicStatus = "ervincito/potencia/status";
 
-        // Conexión al Broker público vía WebSockets (puerto 8000)
-        const client = mqtt.connect('wss://broker.hivemq.com:8014/mqtt');
+        // Conexión cifrada a Shiftr.io usando el puerto 443
+        const client = mqtt.connect('wss://public:public@broker.shiftr.io:443', {
+            clientId: 'web-panel-' + Math.random().toString(16).substr(2, 8)
+        });
 
         client.on('connect', () => {
             document.getElementById('lbl_estado').innerText = "Conectado. Esperando ESP32...";
-            // Nos suscribimos para leer lo que mande el ESP32
             client.subscribe(topicStatus);
         });
 
@@ -70,7 +70,6 @@
             console.error(err);
         });
 
-        // Recepción y procesamiento de datos del ESP32
         client.on('message', (topic, message) => {
             if(topic === topicStatus) {
                 const data = JSON.parse(message.toString());
@@ -86,7 +85,6 @@
             }
         });
 
-        // Funciones para enviar comandos al ESP32 a través de la nube
         function publicarComando(cmd) {
             client.publish(topicControl, cmd);
         }
@@ -95,7 +93,6 @@
             const on = document.getElementById('t_on').value;
             const off = document.getElementById('t_off').value;
             const cycles = document.getElementById('ciclos').value;
-            // Construye la trama: START:10,5,3
             const cmd = `START:${on},${off},${cycles}`;
             publicarComando(cmd);
         }
